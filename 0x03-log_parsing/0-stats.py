@@ -3,43 +3,49 @@
 a script that reads stdin line by line and computes metrics
 """
 
+
 import sys
-import signal
 
 
-def signal_handler(sig, frame):
-    print_stats()
-    sys.exit(0)
+def parse_line(line):
+    """
+    Parses a log line and extracts relevant information.
+    Returns a tuple (status_code, file_size) or None if the line format is invalid.
+    """
+    try:
+        _, _, request, status_code, file_size = line.split()
+        if request.startswith("GET /projects/260"):
+            return int(status_code), int(file_size)
+    except ValueError:
+        pass
+    return None
 
 
-def print_stats():
-    global total_size
-    global status_codes
+def main():
+    total_size = 0
+    status_counts = {200: 0, 301: 0, 400: 0, 401: 0, 403: 0, 404: 0, 405: 0, 500: 0}
+    line_count = 0
 
-    print("Total file size:", total_size)
-    for code in sorted(status_codes.keys()):
-        print(f"{code}: {status_codes[code]}")
+    try:
+        for line in sys.stdin:
+            parsed = parse_line(line)
+            if parsed:
+                status_code, file_size = parsed
+                total_size += file_size
+                status_counts[status_code] += 1
+                line_count += 1
 
-total_size = 0
-status_codes = {}
+                if line_count % 10 == 0:
+                    print(f"Total file size: {total_size}")
+                    for code in sorted(status_counts.keys()):
+                        if status_counts[code] > 0:
+                            print(f"{code}: {status_counts[code]}")
+                    print()
 
-signal.signal(signal.SIGINT, signal_handler)
+    except KeyboardInterrupt:
+        # Handle keyboard interruption (CTRL + C)
+        pass
 
-try:
-    for line_num, line in enumerate(sys.stdin, start=1):
-        try:
-            ip, _, _, status, size = line.split()[0], line.split()[8], line.split()[10], line.split()[7], line.split()[9]
-            size = int(size)
-            if status.isdigit():
-                status = int(status)
-                if status in [200, 301, 400, 401, 403, 404, 405, 500]:
-                    status_codes[status] = status_codes.get(status, 0) + 1
-            total_size += size
-        except Exception as e:
-            continue
 
-        if line_num % 10 == 0:
-            print_stats()
-except KeyboardInterrupt:
-    print_stats()
-    sys.exit(0)
+if __name__ == "__main__":
+    main()
