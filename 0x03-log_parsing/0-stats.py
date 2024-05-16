@@ -1,51 +1,37 @@
 #!/usr/bin/python3
-"""
-a script that reads stdin line by line and computes metrics
-"""
+"""A script that reads stdin line by line and computes metrics"""
 
 
 import sys
 
+cache = {'200': 0, '301': 0, '400': 0, '401': 0,
+         '403': 0, '404': 0, '405': 0, '500': 0}
+total_size = 0
+counter = 0
 
-def parse_line(line):
-    """
-    Parses a log line and extracts relevant information.
-    Returns a tuple (status_code, file_size) or None if the line format is invalid.
-    """
-    try:
-        _, _, request, status_code, file_size = line.split()
-        if request.startswith("GET /projects/260"):
-            return int(status_code), int(file_size)
-    except ValueError:
-        pass
-    return None
+try:
+    for line in sys.stdin:
+        line_list = line.split(" ")
+        if len(line_list) > 4:
+            code = line_list[-2]
+            size = int(line_list[-1])
+            if code in cache.keys():
+                cache[code] += 1
+            total_size += size
+            counter += 1
 
+        if counter == 10:
+            counter = 0
+            print('File size: {}'.format(total_size))
+            for key, value in sorted(cache.items()):
+                if value != 0:
+                    print('{}: {}'.format(key, value))
 
-def main():
-    total_size = 0
-    status_counts = {200: 0, 301: 0, 400: 0, 401: 0, 403: 0, 404: 0, 405: 0, 500: 0}
-    line_count = 0
+except Exception as err:
+    pass
 
-    try:
-        for line in sys.stdin:
-            parsed = parse_line(line)
-            if parsed:
-                status_code, file_size = parsed
-                total_size += file_size
-                status_counts[status_code] += 1
-                line_count += 1
-
-                if line_count % 10 == 0:
-                    print(f"Total file size: {total_size}")
-                    for code in sorted(status_counts.keys()):
-                        if status_counts[code] > 0:
-                            print(f"{code}: {status_counts[code]}")
-                    print()
-
-    except KeyboardInterrupt:
-        # Handle keyboard interruption (CTRL + C)
-        pass
-
-
-if __name__ == "__main__":
-    main()
+finally:
+    print('File size: {}'.format(total_size))
+    for key, value in sorted(cache.items()):
+        if value != 0:
+            print('{}: {}'.format(key, value))
