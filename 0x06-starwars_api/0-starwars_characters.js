@@ -1,51 +1,25 @@
 #!/usr/bin/node
-
 const request = require('request');
+const API_URL = 'https://swapi-api.hbtn.io/api';
 
-// Check if a movie ID was provided
-if (process.argv.length !== 3) {
-  console.log('Usage: ./3-starwars_characters.js <Movie ID>');
-  process.exit(1);
-}
+if (process.argv.length > 2) {
+  request(`${API_URL}/films/${process.argv[2]}/`, (err, _, body) => {
+    if (err) {
+      console.log(err);
+    }
+    const charactersURL = JSON.parse(body).characters;
+    const charactersName = charactersURL.map(
+      url => new Promise((resolve, reject) => {
+        request(url, (promiseErr, __, charactersReqBody) => {
+          if (promiseErr) {
+            reject(promiseErr);
+          }
+          resolve(JSON.parse(charactersReqBody).name);
+        });
+      }));
 
-// Get the movie ID from the command-line arguments
-const movieId = process.argv[2];
-
-// Define the API endpoint for the specified movie
-const apiUrl = `https://swapi.dev/api/films/${movieId}/`;
-
-// Make a request to the API to get the movie details
-request(apiUrl, (error, response, body) => {
-  if (error) {
-    console.error('Error:', error);
-    process.exit(1);
-  }
-
-  // Parse the JSON response
-  const movie = JSON.parse(body);
-
-  // Check if the movie was found
-  if (response.statusCode === 404) {
-    console.log('Movie not found');
-    process.exit(1);
-  }
-
-  // Get the list of characters
-  const characters = movie.characters;
-
-  // Fetch and print the names of the characters
-  characters.forEach(characterUrl => {
-    request(characterUrl, (error, response, body) => {
-      if (error) {
-        console.error('Error:', error);
-        return;
-      }
-
-      // Parse the JSON response
-      const character = JSON.parse(body);
-
-      // Print the name of the character
-      console.log(character.name);
-    });
+    Promise.all(charactersName)
+      .then(names => console.log(names.join('\n')))
+      .catch(allErr => console.log(allErr));
   });
-});
+}
